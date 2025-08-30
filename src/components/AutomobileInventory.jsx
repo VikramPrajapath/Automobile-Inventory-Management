@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import * as XLSX from "xlsx";
+import AnalyticsDashboard from "../components/Analytics/AnalyticsDashboard";
 import {
   Plus,
   Download,
@@ -11,7 +12,8 @@ import {
   X,
   Database,
   Settings,
-  Trash2, // Add this import
+  Trash2,
+  BarChart3, // Add this import
 } from "lucide-react";
 import InventoryCard from "./InventoryCard";
 import InventoryModal from "./InventoryModal";
@@ -33,7 +35,7 @@ const AutomobileInventory = () => {
   const [brandFilter, setBrandFilter] = useState("");
   const [viewingImage, setViewingImage] = useState(null);
   const [showDataManagement, setShowDataManagement] = useState(false);
-
+  const [showAnalytics, setShowAnalytics] = useState(false);
   // Snackbar notifications
   const [snackbars, setSnackbars] = useState([]);
 
@@ -465,10 +467,24 @@ const AutomobileInventory = () => {
                 <Trash2 className="w-5 h-5" />
                 Clear All Data
               </button>
+
+              <button
+                onClick={() => setShowAnalytics(true)}
+                className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+              >
+                <BarChart3 className="w-5 h-5" />
+                Analytics Dashboard
+              </button>
             </div>
           </div>
         </div>
-
+        {showAnalytics && (
+          <AnalyticsDashboard
+            inventory={inventory}
+            theme={theme}
+            onClose={() => setShowAnalytics(false)}
+          />
+        )}
         {/* Statistics */}
         <Statistics
           inventory={inventory}
