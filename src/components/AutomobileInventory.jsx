@@ -18,42 +18,31 @@ const AutomobileInventory = () => {
   // Theme state
   const [theme, setTheme] = useState("light");
 
-  // Existing states
-  const [inventory, setInventory] = useState([
-    {
-      id: 1,
-      partName: "Brake Pads",
-      partNumber: "BP-001",
-      brand: "Bosch",
-      cost: 2500,
-      discount: 10,
-      quantity: 25,
-      features: "Ceramic compound, Low noise, Long-lasting",
-      image: null,
-    },
-    {
-      id: 2,
-      partName: "Air Filter",
-      partNumber: "AF-002",
-      brand: "Mann Filter",
-      cost: 850,
-      discount: 5,
-      quantity: 40,
-      features: "High filtration efficiency, Durable material",
-      image: null,
-    },
-  ]);
-
-  const [filteredInventory, setFilteredInventory] = useState(inventory);
+  // Dynamic states (no static data)
+  const [inventory, setInventory] = useState([]);
+  const [filteredInventory, setFilteredInventory] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [brandFilter, setBrandFilter] = useState("");
   const [viewingImage, setViewingImage] = useState(null);
 
-  // New real-time states
+  // Real-time states
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Load inventory from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("automobile_inventory");
+    if (saved) {
+      setInventory(JSON.parse(saved));
+    }
+  }, []);
+
+  // Save inventory to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem("automobile_inventory", JSON.stringify(inventory));
+  }, [inventory]);
 
   // Real-time clock effect
   useEffect(() => {
@@ -73,9 +62,9 @@ const AutomobileInventory = () => {
     if (searchTerm) {
       filtered = filtered.filter(
         (item) =>
-          item.partName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          item.partNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          item.brand.toLowerCase().includes(searchTerm.toLowerCase())
+          item.partName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          item.partNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          item.brand?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -86,7 +75,7 @@ const AutomobileInventory = () => {
     setFilteredInventory(filtered);
   }, [inventory, searchTerm, brandFilter]);
 
-  // Updated handlers with real-time updates
+  // Handlers with persistence
   const handleAddItem = useCallback((newItem) => {
     const item = {
       ...newItem,
@@ -122,15 +111,15 @@ const AutomobileInventory = () => {
     }
   }, []);
 
-  // Theme toggle function
+  // Theme toggle
   const toggleTheme = () => {
     setTheme((prev) => (prev === "light" ? "dark" : "light"));
   };
 
-  // Export Inventory to Excel
-  const exportToExcel = (inventory) => {
-    // Convert data to worksheet
+  // Export to Excel
+  const exportToExcel = () => {
     const exportData = inventory.map((item) => ({
+      ID: item.id,
       "Part Name": item.partName,
       "Part Number": item.partNumber,
       Brand: item.brand,
@@ -140,40 +129,47 @@ const AutomobileInventory = () => {
       Quantity: item.quantity,
       Features: item.features,
     }));
-
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Inventory");
-
-    // Trigger download
-    XLSX.writeFile(workbook, "inventory_data.xlsx");
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Inventory");
+    XLSX.writeFile(wb, "inventory_export.xlsx");
   };
 
-  // Import Inventory from Excel
-  // ✅ Correct version
-  const importFromExcel = (e) => {
-    const file = e.target.files[0];
+  // Import from Excel
+  const importFromExcel = (e, mode = "merge") => {
+    const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = (evt) => {
       const data = new Uint8Array(evt.target.result);
       const workbook = XLSX.read(data, { type: "array" });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const rows = XLSX.utils.sheet_to_json(worksheet);
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet);
 
-      const importedData = rows.map((row) => ({
+      const imported = rows.map((row) => ({
+        id: row["ID"] || Date.now() + Math.random(),
         partName: row["Part Name"],
         partNumber: row["Part Number"],
         brand: row["Brand"],
-        cost: parseFloat(row["Cost (₹)"]),
-        discount: parseFloat(row["Discount (%)"]),
-        quantity: parseInt(row["Quantity"], 10),
+        cost: parseFloat(row["Cost (₹)"]) || 0,
+        discount: parseFloat(row["Discount (%)"]) || 0,
+        quantity: parseInt(row["Quantity"], 10) || 0,
         features: row["Features"] || "",
+        image: row["Image"] || null,
       }));
 
-      setInventory(importedData); // ✅ This now works fine
+      if (mode === "merge") {
+        setInventory((prev) => {
+          const existingIds = new Set(prev.map((i) => i.id));
+          const newOnes = imported.filter((i) => !existingIds.has(i.id));
+          return [...prev, ...newOnes];
+        });
+      } else {
+        setInventory(imported);
+      }
+
+      setLastUpdate(new Date());
     };
     reader.readAsArrayBuffer(file);
   };
@@ -200,7 +196,6 @@ const AutomobileInventory = () => {
         <div
           className={`${headerClass} rounded-2xl shadow-xl p-6 mb-6 relative overflow-hidden`}
         >
-          {/* Animated background effect */}
           <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 animate-pulse"></div>
 
           <div className="relative z-10">
@@ -248,14 +243,12 @@ const AutomobileInventory = () => {
               </div>
             </div>
 
-            {/* Search and Filter Controls */}
+            {/* Search and Filter */}
             <div className="flex flex-wrap gap-4 mb-6">
               <div className="flex-1 min-w-64">
                 <div className="relative">
                   <Search
-                    className={`absolute left-4 top-1/2 transform -translate-y-1/2 ${
-                      theme === "dark" ? "text-gray-400" : "text-gray-400"
-                    } w-5 h-5`}
+                    className={`absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5`}
                   />
                   <input
                     type="text"
@@ -289,7 +282,7 @@ const AutomobileInventory = () => {
               </select>
             </div>
 
-            {/* Action Buttons with futuristic design */}
+            {/* Action Buttons */}
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={() => setShowModal(true)}
@@ -321,14 +314,14 @@ const AutomobileInventory = () => {
           </div>
         </div>
 
-        {/* Statistics with real-time updates */}
+        {/* Statistics */}
         <Statistics
           inventory={inventory}
           uniqueBrands={uniqueBrands}
           theme={theme}
         />
 
-        {/* Real-time inventory status */}
+        {/* System Status */}
         <div className={`${headerClass} rounded-xl shadow-lg p-4 mt-6 mb-6`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -352,7 +345,7 @@ const AutomobileInventory = () => {
           </div>
         </div>
 
-        {/* Inventory Grid with enhanced animations */}
+        {/* Inventory Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-6">
           {filteredInventory.map((item, index) => (
             <div
@@ -374,6 +367,7 @@ const AutomobileInventory = () => {
           ))}
         </div>
 
+        {/* Empty state */}
         {filteredInventory.length === 0 && (
           <div className="text-center py-16">
             <div
@@ -417,7 +411,7 @@ const AutomobileInventory = () => {
           />
         )}
 
-        {/* Enhanced Image Viewer Modal */}
+        {/* Image Viewer */}
         {viewingImage && (
           <div className="fixed inset-0 bg-black bg-opacity-90 backdrop-blur-md flex items-center justify-center p-4 z-50">
             <div className="relative max-w-4xl max-h-full">
