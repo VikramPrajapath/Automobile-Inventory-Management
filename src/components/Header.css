@@ -1,0 +1,23 @@
+.header {
+  background-color: #222;
+  padding: 16px 0;
+  text-align: center;
+}
+
+.header nav {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+}
+
+.header a {
+  color: #fff;
+  text-decoration: none;
+  font-size: 1.1rem;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.header a:hover {
+  color: #ff9800;
+}
