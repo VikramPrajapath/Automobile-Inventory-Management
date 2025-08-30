@@ -11,6 +11,7 @@ import {
   X,
   Database,
   Settings,
+  Trash2, // Add this import
 } from "lucide-react";
 import InventoryCard from "./InventoryCard";
 import InventoryModal from "./InventoryModal";
@@ -144,6 +145,29 @@ const AutomobileInventory = () => {
     }
   }, []);
 
+  // Clear all data function
+  const handleClearAllData = () => {
+    if (
+      window.confirm(
+        "Are you sure you want to clear ALL data? This action cannot be undone!"
+      )
+    ) {
+      // Clear localStorage
+      localStorage.removeItem("vehicles");
+
+      // Clear state
+      setInventory([]);
+      setSearchTerm("");
+      setBrandFilter("");
+
+      // Reset last update timestamp
+      setLastUpdate(new Date());
+
+      // Show success message
+      addSnackbar("All data has been cleared successfully", "success");
+    }
+  };
+
   // Theme toggle
   const toggleTheme = () => {
     setTheme((prev) => (prev === "light" ? "dark" : "light"));
@@ -156,60 +180,26 @@ const AutomobileInventory = () => {
   // Export to Excel
   const exportToExcel = () => {
     try {
-      const exportData = inventory.map((item) => {
-        // Create a safe version of features that won't exceed Excel limits
-        let safeFeatures = item.features || "";
-
-        // Check if features exceed Excel limit and truncate if needed
-        if (safeFeatures.length > 32000) {
-          safeFeatures = safeFeatures.substring(0, 32000) + "... [truncated]";
-          addSnackbar(
-            `Some features were truncated for Excel compatibility`,
-            "warning"
-          );
-        }
-
-        return {
-          ID: item.id,
-          "Part Name": item.partName,
-          "Part Number": item.partNumber,
-          Brand: item.brand,
-          "Cost (₹)": item.cost,
-          "Discount (%)": item.discount,
-          "Final Price (₹)": (
-            (item.cost * (100 - item.discount)) /
-            100
-          ).toFixed(2),
-          Quantity: item.quantity,
-          Features: safeFeatures,
-          "Image Available": item.image ? "Yes" : "No",
-        };
-      });
+      const exportData = inventory.map((item) => ({
+        ID: item.id,
+        "Part Name": item.partName,
+        "Part Number": item.partNumber,
+        Brand: item.brand,
+        "Cost (₹)": item.cost,
+        "Discount (%)": item.discount,
+        "Final Price (₹)": ((item.cost * (100 - item.discount)) / 100).toFixed(
+          2
+        ),
+        Quantity: item.quantity,
+        // Truncate features to avoid Excel cell limit
+        Features: item.features ? item.features.substring(0, 32000) : "",
+        Image: item.image || "",
+      }));
 
       const ws = XLSX.utils.json_to_sheet(exportData);
-
-      // Set column widths for better readability
-      const columnWidths = [
-        { wch: 10 }, // ID
-        { wch: 25 }, // Part Name
-        { wch: 15 }, // Part Number
-        { wch: 15 }, // Brand
-        { wch: 10 }, // Cost
-        { wch: 12 }, // Discount
-        { wch: 15 }, // Final Price
-        { wch: 10 }, // Quantity
-        { wch: 50 }, // Features (wider for text)
-        { wch: 15 }, // Image Available
-      ];
-
-      ws["!cols"] = columnWidths;
-
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Inventory");
-      XLSX.writeFile(
-        wb,
-        `inventory_export_${new Date().toISOString().slice(0, 10)}.xlsx`
-      );
+      XLSX.writeFile(wb, "inventory_export.xlsx");
       addSnackbar("Data exported to Excel successfully", "success");
     } catch (error) {
       console.error("Error exporting to Excel:", error);
@@ -227,7 +217,7 @@ const AutomobileInventory = () => {
     }
   };
 
-  // Enhanced Excel import with better validation and unique IDs
+  // Enhanced Excel import with better validation
   const importFromExcel = (e, mode = "merge") => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -383,7 +373,7 @@ const AutomobileInventory = () => {
                   } shadow-lg hover:shadow-xl`}
                 >
                   {theme === "dark" ? (
-                    <Sun className="w-6 h-6" />
+                    <Sun className="w-极狐-6" />
                   ) : (
                     <Moon className="w-6 h-6" />
                   )}
@@ -393,7 +383,7 @@ const AutomobileInventory = () => {
 
             {/* Search and Filter */}
             <div className="flex flex-wrap gap-4 mb-6">
-              <div className="flex-1 min-w-64">
+              <div className="flex-1 min极狐-64">
                 <div className="relative">
                   <Search
                     className={`absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5`}
@@ -466,6 +456,15 @@ const AutomobileInventory = () => {
                 <Database className="w-5 h-5" />
                 Data Management
               </button>
+
+              {/* Clear All Data Button */}
+              <button
+                onClick={handleClearAllData}
+                className="bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+              >
+                <Trash2 className="w-5 h-5" />
+                Clear All Data
+              </button>
             </div>
           </div>
         </div>
@@ -504,23 +503,28 @@ const AutomobileInventory = () => {
         {/* Inventory Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-6">
           {filteredInventory.map((item, index) => (
-            <InventoryCard
+            <div
               key={`inventory-card-${item.id}-${index}`}
-              item={item}
-              onEdit={() => {
-                setEditingItem(item);
-                setShowModal(true);
-              }}
-              onDelete={() => handleDeleteItem(item.id)}
-              onImageView={setViewingImage}
-              theme={theme}
-              filters={{ searchTerm, brandFilter }}
-            />
+              className="animate-fade-in"
+              style={{ animationDelay: `${index * 0.1}s` }}
+            >
+              <InventoryCard
+                item={item}
+                onEdit={() => {
+                  setEditingItem(item);
+                  setShowModal(true);
+                }}
+                onDelete={() => handleDeleteItem(item.id)}
+                onImageView={setViewingImage}
+                theme={theme}
+                filters={{ searchTerm, brandFilter }}
+              />
+            </div>
           ))}
         </div>
 
         {/* Empty state */}
-        {filteredInventory.length === 0 && (
+        {filteredInventory.length === 0 && inventory.length > 0 && (
           <div className="text-center py-16">
             <div
               className={`inline-block p-8 rounded-2xl ${
@@ -545,6 +549,37 @@ const AutomobileInventory = () => {
                 } text-sm mt-2`}
               >
                 Try adjusting your search or filters
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Completely empty state (no items at all) */}
+        {inventory.length === 0 && (
+          <div className="text-center py-16">
+            <div
+              className={`inline-block p-8 rounded-2xl ${
+                theme === "dark"
+                  ? "bg-gray-800 border border-gray-700"
+                  : "bg-white border border-gray-200"
+              } shadow-xl`}
+            >
+              <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-blue-300 to-purple-400 rounded-full flex items-center justify-center">
+                <Database className="w-8 h-8 text-white" />
+              </div>
+              <p
+                className={`${
+                  theme === "dark" ? "text-gray-300" : "text-gray-500"
+                } text-lg font-medium`}
+              >
+                Your inventory is empty.
+              </p>
+              <p
+                className={`${
+                  theme === "dark" ? "text-gray-400" : "text-gray-400"
+                } text-sm mt-2`}
+              >
+                Click "Add New Item" to get started
               </p>
             </div>
           </div>
@@ -641,6 +676,18 @@ const AutomobileInventory = () => {
                       </div>
                     </label>
                   </div>
+                </div>
+
+                <div>
+                  <h3 className={`font-medium ${subtextClass} mb-2`}>
+                    Clear Data
+                  </h3>
+                  <button
+                    onClick={handleClearAllData}
+                    className="w-full bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded"
+                  >
+                    Clear All Data
+                  </button>
                 </div>
               </div>
             </div>
