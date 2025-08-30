@@ -17,6 +17,7 @@ import InventoryModal from "./InventoryModal";
 import Statistics from "./Statistics";
 import DataHandler from "../utils/dataHandler";
 import dataPaths from "../config/paths";
+import FuturisticSnackbar from "../utils/FuturisticSnackbar";
 
 const AutomobileInventory = () => {
   // Theme state
@@ -31,17 +32,38 @@ const AutomobileInventory = () => {
   const [brandFilter, setBrandFilter] = useState("");
   const [viewingImage, setViewingImage] = useState(null);
   const [showDataManagement, setShowDataManagement] = useState(false);
-  const [importStatus, setImportStatus] = useState({ type: "", message: "" });
+
+  // Snackbar notifications
+  const [snackbars, setSnackbars] = useState([]);
 
   // Real-time states
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Add a new snackbar
+  const addSnackbar = (message, type = "info") => {
+    const id = Date.now();
+    setSnackbars((prev) => [...prev, { id, message, type }]);
+
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+      removeSnackbar(id);
+    }, 5000);
+  };
+
+  // Remove a snackbar
+  const removeSnackbar = (id) => {
+    setSnackbars((prev) => prev.filter((snackbar) => snackbar.id !== id));
+  };
 
   // Load inventory using DataHandler
   useEffect(() => {
     const savedData = DataHandler.loadData("vehicles");
     if (savedData && savedData.length > 0) {
       setInventory(savedData);
+      addSnackbar("Inventory data loaded successfully", "success");
+    } else {
+      addSnackbar("No saved inventory found. Start by adding items.", "info");
     }
   }, []);
 
@@ -87,13 +109,14 @@ const AutomobileInventory = () => {
   const handleAddItem = useCallback((newItem) => {
     const item = {
       ...newItem,
-      id: Date.now(),
+      id: Date.now() + Math.floor(Math.random() * 1000), // More unique ID
       cost: parseFloat(newItem.cost),
       discount: parseFloat(newItem.discount),
       quantity: parseInt(newItem.quantity),
     };
     setInventory((prev) => [...prev, item]);
     setLastUpdate(new Date());
+    addSnackbar("Item added successfully", "success");
   }, []);
 
   const handleUpdateItem = useCallback((updatedItem) => {
@@ -110,49 +133,101 @@ const AutomobileInventory = () => {
       )
     );
     setLastUpdate(new Date());
+    addSnackbar("Item updated successfully", "success");
   }, []);
 
   const handleDeleteItem = useCallback((id) => {
     if (window.confirm("Are you sure you want to delete this item?")) {
       setInventory((prev) => prev.filter((item) => item.id !== id));
       setLastUpdate(new Date());
+      addSnackbar("Item deleted successfully", "success");
     }
   }, []);
 
   // Theme toggle
   const toggleTheme = () => {
     setTheme((prev) => (prev === "light" ? "dark" : "light"));
+    addSnackbar(
+      `Theme changed to ${theme === "light" ? "dark" : "light"} mode`,
+      "info"
+    );
   };
 
   // Export to Excel
   const exportToExcel = () => {
     try {
-      const exportData = inventory.map((item) => ({
-        ID: item.id,
-        "Part Name": item.partName,
-        "Part Number": item.partNumber,
-        Brand: item.brand,
-        "Cost (₹)": item.cost,
-        "Discount (%)": item.discount,
-        "Final Price (₹)": ((item.cost * (100 - item.discount)) / 100).toFixed(
-          2
-        ),
-        Quantity: item.quantity,
-        Features: item.features,
-        Image: item.image || "",
-      }));
+      const exportData = inventory.map((item) => {
+        // Create a safe version of features that won't exceed Excel limits
+        let safeFeatures = item.features || "";
+
+        // Check if features exceed Excel limit and truncate if needed
+        if (safeFeatures.length > 32000) {
+          safeFeatures = safeFeatures.substring(0, 32000) + "... [truncated]";
+          addSnackbar(
+            `Some features were truncated for Excel compatibility`,
+            "warning"
+          );
+        }
+
+        return {
+          ID: item.id,
+          "Part Name": item.partName,
+          "Part Number": item.partNumber,
+          Brand: item.brand,
+          "Cost (₹)": item.cost,
+          "Discount (%)": item.discount,
+          "Final Price (₹)": (
+            (item.cost * (100 - item.discount)) /
+            100
+          ).toFixed(2),
+          Quantity: item.quantity,
+          Features: safeFeatures,
+          "Image Available": item.image ? "Yes" : "No",
+        };
+      });
 
       const ws = XLSX.utils.json_to_sheet(exportData);
+
+      // Set column widths for better readability
+      const columnWidths = [
+        { wch: 10 }, // ID
+        { wch: 25 }, // Part Name
+        { wch: 15 }, // Part Number
+        { wch: 15 }, // Brand
+        { wch: 10 }, // Cost
+        { wch: 12 }, // Discount
+        { wch: 15 }, // Final Price
+        { wch: 10 }, // Quantity
+        { wch: 50 }, // Features (wider for text)
+        { wch: 15 }, // Image Available
+      ];
+
+      ws["!cols"] = columnWidths;
+
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Inventory");
-      XLSX.writeFile(wb, "inventory_export.xlsx");
+      XLSX.writeFile(
+        wb,
+        `inventory_export_${new Date().toISOString().slice(0, 10)}.xlsx`
+      );
+      addSnackbar("Data exported to Excel successfully", "success");
     } catch (error) {
       console.error("Error exporting to Excel:", error);
-      alert("Failed to export data. Please try again.");
+
+      if (
+        error.message.includes("Text length must not exceed 32767 characters")
+      ) {
+        addSnackbar(
+          "Export failed: Some text fields are too long for Excel",
+          "error"
+        );
+      } else {
+        addSnackbar("Failed to export data to Excel", "error");
+      }
     }
   };
 
-  // Enhanced Excel import with better validation
+  // Enhanced Excel import with better validation and unique IDs
   const importFromExcel = (e, mode = "merge") => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -168,8 +243,10 @@ const AutomobileInventory = () => {
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(sheet);
 
+        // Generate unique IDs using a counter to avoid duplicates
+        let idCounter = Date.now();
         const imported = rows.map((row) => ({
-          id: row["ID"] || Date.now() + Math.random(),
+          id: row["ID"] || idCounter++,
           partName: row["Part Name"] || "Unknown Part",
           partNumber: row["Part Number"] || "N/A",
           brand: row["Brand"] || "Unknown Brand",
@@ -191,20 +268,13 @@ const AutomobileInventory = () => {
         }
 
         setLastUpdate(new Date());
-        setImportStatus({
-          type: "success",
-          message: `Successfully imported ${imported.length} items`,
-        });
-
-        // Clear status after 3 seconds
-        setTimeout(() => setImportStatus({ type: "", message: "" }), 3000);
+        addSnackbar(
+          `Successfully imported ${imported.length} items`,
+          "success"
+        );
       } catch (error) {
         console.error("Error importing Excel file:", error);
-        setImportStatus({
-          type: "error",
-          message: "Failed to import Excel file",
-        });
-        setTimeout(() => setImportStatus({ type: "", message: "" }), 3000);
+        addSnackbar("Failed to import Excel file", "error");
       }
     };
     reader.readAsArrayBuffer(file);
@@ -217,14 +287,10 @@ const AutomobileInventory = () => {
       "inventory_backup.json"
     );
     if (success) {
-      setImportStatus({
-        type: "success",
-        message: "Data exported successfully",
-      });
+      addSnackbar("Data exported to JSON successfully", "success");
     } else {
-      setImportStatus({ type: "error", message: "Failed to export data" });
+      addSnackbar("Failed to export data to JSON", "error");
     }
-    setTimeout(() => setImportStatus({ type: "", message: "" }), 3000);
   };
 
   // JSON import function
@@ -241,16 +307,10 @@ const AutomobileInventory = () => {
         const savedData = DataHandler.loadData("vehicles");
         setInventory(savedData);
         setLastUpdate(new Date());
-        setImportStatus({
-          type: "success",
-          message: "Data imported successfully",
-        });
+        addSnackbar("Data imported from JSON successfully", "success");
       })
       .catch((error) => {
-        setImportStatus({ type: "error", message: error.message });
-      })
-      .finally(() => {
-        setTimeout(() => setImportStatus({ type: "", message: "" }), 3000);
+        addSnackbar(error.message, "error");
       });
   };
 
@@ -444,22 +504,18 @@ const AutomobileInventory = () => {
         {/* Inventory Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-6">
           {filteredInventory.map((item, index) => (
-            <div
-              key={item.id}
-              className="animate-fade-in"
-              style={{ animationDelay: `${index * 0.1}s` }}
-            >
-              <InventoryCard
-                item={item}
-                onEdit={() => {
-                  setEditingItem(item);
-                  setShowModal(true);
-                }}
-                onDelete={() => handleDeleteItem(item.id)}
-                onImageView={setViewingImage}
-                theme={theme}
-              />
-            </div>
+            <InventoryCard
+              key={`inventory-card-${item.id}-${index}`}
+              item={item}
+              onEdit={() => {
+                setEditingItem(item);
+                setShowModal(true);
+              }}
+              onDelete={() => handleDeleteItem(item.id)}
+              onImageView={setViewingImage}
+              theme={theme}
+              filters={{ searchTerm, brandFilter }}
+            />
           ))}
         </div>
 
@@ -586,18 +642,6 @@ const AutomobileInventory = () => {
                     </label>
                   </div>
                 </div>
-
-                {importStatus.message && (
-                  <div
-                    className={`p-3 rounded ${
-                      importStatus.type === "success"
-                        ? "bg-green-100 text-green-800"
-                        : "bg-red-100 text-red-800"
-                    }`}
-                  >
-                    {importStatus.message}
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -624,6 +668,18 @@ const AutomobileInventory = () => {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Snackbar container */}
+      <div className="fixed top-4 right-4 z-50 space-y-2">
+        {snackbars.map((snackbar) => (
+          <FuturisticSnackbar
+            key={snackbar.id}
+            message={snackbar.message}
+            type={snackbar.type}
+            onClose={() => removeSnackbar(snackbar.id)}
+          />
+        ))}
       </div>
     </div>
   );

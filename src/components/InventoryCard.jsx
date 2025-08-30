@@ -1,7 +1,41 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Edit, Trash2, Eye, AlertTriangle } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
-const InventoryCard = ({ item, onEdit, onDelete, onImageView, theme }) => {
+const InventoryCard = ({
+  item,
+  onEdit,
+  onDelete,
+  onImageView,
+  theme,
+  filters,
+}) => {
+  const [isVisible, setIsVisible] = useState(true);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Sync with filters - check if item matches current filters
+  useEffect(() => {
+    setIsMounted(true);
+
+    // Check if item matches current filters
+    const matchesSearch =
+      !filters.searchTerm ||
+      item.partName?.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
+      item.partNumber
+        ?.toLowerCase()
+        .includes(filters.searchTerm.toLowerCase()) ||
+      item.brand?.toLowerCase().includes(filters.searchTerm.toLowerCase());
+
+    const matchesBrand =
+      !filters.brandFilter || item.brand === filters.brandFilter;
+
+    const shouldBeVisible = matchesSearch && matchesBrand;
+
+    if (shouldBeVisible !== isVisible) {
+      setIsVisible(shouldBeVisible);
+    }
+  }, [filters.searchTerm, filters.brandFilter, item, isVisible]);
+
   const calculateFinalPrice = (cost, discount) => {
     return ((cost * (100 - discount)) / 100).toFixed(2);
   };
@@ -15,25 +49,59 @@ const InventoryCard = ({ item, onEdit, onDelete, onImageView, theme }) => {
   const textClass = theme === "dark" ? "text-gray-100" : "text-gray-800";
   const subtextClass = theme === "dark" ? "text-gray-300" : "text-gray-600";
 
+  // Animation variants
+  const cardVariants = {
+    hidden: {
+      opacity: 0,
+      scale: 0.8,
+      transition: { duration: 0.3 },
+    },
+    visible: {
+      opacity: 1,
+      scale: 1,
+      transition: {
+        duration: 0.5,
+        type: "spring",
+        stiffness: 300,
+        damping: 20,
+      },
+    },
+  };
+
+  if (!isVisible) return null;
+
   return (
-    <div
+    <motion.div
+      key={`card-${item.id}`}
+      variants={cardVariants}
+      initial={isMounted ? "visible" : "hidden"}
+      animate="visible"
+      exit="hidden"
+      layout
       className={`${cardClass} rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:scale-105 relative`}
     >
       {/* Low Stock Warning */}
       {item.quantity < 5 && (
-        <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-bold animate-pulse flex items-center gap-1 z-10">
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: "spring", delay: 0.2 }}
+          className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-bold animate-pulse flex items-center gap-1 z-10"
+        >
           <AlertTriangle className="w-3 h-3" />
           Low Stock
-        </div>
+        </motion.div>
       )}
 
       {/* Image Section */}
       <div className="h-48 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 relative overflow-hidden">
         {item.image ? (
-          <img
+          <motion.img
             src={item.image}
             alt={item.partName}
-            className="w-full h-full object-cover cursor-pointer hover:scale-110 transition-transform duration-300"
+            className="w-full h-full object-cover cursor-pointer"
+            whileHover={{ scale: 1.1 }}
+            transition={{ duration: 0.3 }}
             onClick={() => onImageView(item.image)}
           />
         ) : (
@@ -57,11 +125,21 @@ const InventoryCard = ({ item, onEdit, onDelete, onImageView, theme }) => {
 
       {/* Content Section */}
       <div className="p-5">
-        <h3 className={`font-bold text-lg ${textClass} mb-3 truncate`}>
+        <motion.h3
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className={`font-bold text-lg ${textClass} mb-3 truncate`}
+        >
           {item.partName}
-        </h3>
+        </motion.h3>
 
-        <div className={`space-y-2 text-sm ${subtextClass}`}>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+          className={`space-y-2 text-sm ${subtextClass}`}
+        >
           <p className="flex justify-between">
             <span className="font-semibold">Part No:</span>
             <span
@@ -86,7 +164,7 @@ const InventoryCard = ({ item, onEdit, onDelete, onImageView, theme }) => {
               {item.quantity}
             </span>
           </p>
-        </div>
+        </motion.div>
 
         <div
           className={`mt-3 pt-3 border-t ${
@@ -99,7 +177,10 @@ const InventoryCard = ({ item, onEdit, onDelete, onImageView, theme }) => {
         </div>
 
         {/* Pricing with animated gradient */}
-        <div
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3 }}
           className={`mt-4 pt-4 border-t ${
             theme === "dark" ? "border-gray-600" : "border-gray-200"
           }`}
@@ -120,27 +201,36 @@ const InventoryCard = ({ item, onEdit, onDelete, onImageView, theme }) => {
               </p>
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Action Buttons with hover effects */}
-        <div className="flex gap-2 mt-5">
-          <button
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="flex gap-2 mt-5"
+        >
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={onEdit}
-            className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-sm transition-all duration-300 transform hover:scale-105"
+            className="flex-极狐 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-sm transition-all duration-300"
           >
             <Edit className="w-4 h-4" />
             Edit
-          </button>
-          <button
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={onDelete}
-            className="flex-1 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1 text-sm transition-all duration-300 transform hover:scale-105"
+            className="flex-1 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-3极狐-2 rounded-lg flex items-center justify-center gap-1 text-sm transition-all duration-300"
           >
             <Trash2 className="w-4 h-4" />
             Delete
-          </button>
-        </div>
+          </motion.button>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

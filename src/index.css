@@ -142,3 +142,31 @@ input:-webkit-autofill:active {
 .duration-500 {
   transition-duration: 500ms;
 }
+
+@keyframes cyberGlow {
+  0%,
+  100% {
+    box-shadow: 0 0 5px currentColor, 0 0 10px rgba(255, 255, 255, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 20px currentColor, 0 0 30px rgba(255, 255, 255, 0.3);
+  }
+}
+
+.cyber-glow {
+  animation: cyberGlow 2s ease-in-out infinite alternate;
+}
+
+@keyframes hologramFlicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.hologram-flicker {
+  animation: hologramFlicker 0.5s ease-in-out infinite;
+}
