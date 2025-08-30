@@ -1,5 +1,5 @@
 import React from "react";
-import { Edit, Trash2, Eye } from "lucide-react";
+import { Edit, Trash2, Eye, AlertTriangle } from "lucide-react";
 
 const InventoryCard = ({ item, onEdit, onDelete, onImageView, theme }) => {
   const calculateFinalPrice = (cost, discount) => {
@@ -17,8 +17,16 @@ const InventoryCard = ({ item, onEdit, onDelete, onImageView, theme }) => {
 
   return (
     <div
-      className={`${cardClass} rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:scale-105`}
+      className={`${cardClass} rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:scale-105 relative`}
     >
+      {/* Low Stock Warning */}
+      {item.quantity < 5 && (
+        <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-bold animate-pulse flex items-center gap-1 z-10">
+          <AlertTriangle className="w-3 h-3" />
+          Low Stock
+        </div>
+      )}
+
       {/* Image Section */}
       <div className="h-48 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 relative overflow-hidden">
         {item.image ? (

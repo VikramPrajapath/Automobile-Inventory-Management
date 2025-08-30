@@ -9,10 +9,14 @@ import {
   Sun,
   Activity,
   X,
+  Database,
+  Settings,
 } from "lucide-react";
 import InventoryCard from "./InventoryCard";
 import InventoryModal from "./InventoryModal";
 import Statistics from "./Statistics";
+import DataHandler from "../utils/dataHandler";
+import dataPaths from "../config/paths";
 
 const AutomobileInventory = () => {
   // Theme state
@@ -26,22 +30,26 @@ const AutomobileInventory = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [brandFilter, setBrandFilter] = useState("");
   const [viewingImage, setViewingImage] = useState(null);
+  const [showDataManagement, setShowDataManagement] = useState(false);
+  const [importStatus, setImportStatus] = useState({ type: "", message: "" });
 
   // Real-time states
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Load inventory from localStorage on mount
+  // Load inventory using DataHandler
   useEffect(() => {
-    const saved = localStorage.getItem("automobile_inventory");
-    if (saved) {
-      setInventory(JSON.parse(saved));
+    const savedData = DataHandler.loadData("vehicles");
+    if (savedData && savedData.length > 0) {
+      setInventory(savedData);
     }
   }, []);
 
-  // Save inventory to localStorage whenever it changes
+  // Save inventory using DataHandler when it changes
   useEffect(() => {
-    localStorage.setItem("automobile_inventory", JSON.stringify(inventory));
+    if (inventory.length > 0) {
+      DataHandler.saveData("vehicles", inventory);
+    }
   }, [inventory]);
 
   // Real-time clock effect
@@ -118,60 +126,132 @@ const AutomobileInventory = () => {
 
   // Export to Excel
   const exportToExcel = () => {
-    const exportData = inventory.map((item) => ({
-      ID: item.id,
-      "Part Name": item.partName,
-      "Part Number": item.partNumber,
-      Brand: item.brand,
-      "Cost (₹)": item.cost,
-      "Discount (%)": item.discount,
-      "Final Price (₹)": ((item.cost * (100 - item.discount)) / 100).toFixed(2),
-      Quantity: item.quantity,
-      Features: item.features,
-    }));
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Inventory");
-    XLSX.writeFile(wb, "inventory_export.xlsx");
+    try {
+      const exportData = inventory.map((item) => ({
+        ID: item.id,
+        "Part Name": item.partName,
+        "Part Number": item.partNumber,
+        Brand: item.brand,
+        "Cost (₹)": item.cost,
+        "Discount (%)": item.discount,
+        "Final Price (₹)": ((item.cost * (100 - item.discount)) / 100).toFixed(
+          2
+        ),
+        Quantity: item.quantity,
+        Features: item.features,
+        Image: item.image || "",
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Inventory");
+      XLSX.writeFile(wb, "inventory_export.xlsx");
+    } catch (error) {
+      console.error("Error exporting to Excel:", error);
+      alert("Failed to export data. Please try again.");
+    }
   };
 
-  // Import from Excel
+  // Enhanced Excel import with better validation
   const importFromExcel = (e, mode = "merge") => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Reset file input
+    e.target.value = "";
+
     const reader = new FileReader();
     reader.onload = (evt) => {
-      const data = new Uint8Array(evt.target.result);
-      const workbook = XLSX.read(data, { type: "array" });
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(sheet);
+      try {
+        const data = new Uint8Array(evt.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet);
 
-      const imported = rows.map((row) => ({
-        id: row["ID"] || Date.now() + Math.random(),
-        partName: row["Part Name"],
-        partNumber: row["Part Number"],
-        brand: row["Brand"],
-        cost: parseFloat(row["Cost (₹)"]) || 0,
-        discount: parseFloat(row["Discount (%)"]) || 0,
-        quantity: parseInt(row["Quantity"], 10) || 0,
-        features: row["Features"] || "",
-        image: row["Image"] || null,
-      }));
+        const imported = rows.map((row) => ({
+          id: row["ID"] || Date.now() + Math.random(),
+          partName: row["Part Name"] || "Unknown Part",
+          partNumber: row["Part Number"] || "N/A",
+          brand: row["Brand"] || "Unknown Brand",
+          cost: parseFloat(row["Cost (₹)"]) || 0,
+          discount: parseFloat(row["Discount (%)"]) || 0,
+          quantity: parseInt(row["Quantity"], 10) || 0,
+          features: row["Features"] || "",
+          image: row["Image"] || null,
+        }));
 
-      if (mode === "merge") {
-        setInventory((prev) => {
-          const existingIds = new Set(prev.map((i) => i.id));
-          const newOnes = imported.filter((i) => !existingIds.has(i.id));
-          return [...prev, ...newOnes];
+        if (mode === "merge") {
+          setInventory((prev) => {
+            const existingIds = new Set(prev.map((i) => i.id));
+            const newOnes = imported.filter((i) => !existingIds.has(i.id));
+            return [...prev, ...newOnes];
+          });
+        } else {
+          setInventory(imported);
+        }
+
+        setLastUpdate(new Date());
+        setImportStatus({
+          type: "success",
+          message: `Successfully imported ${imported.length} items`,
         });
-      } else {
-        setInventory(imported);
-      }
 
-      setLastUpdate(new Date());
+        // Clear status after 3 seconds
+        setTimeout(() => setImportStatus({ type: "", message: "" }), 3000);
+      } catch (error) {
+        console.error("Error importing Excel file:", error);
+        setImportStatus({
+          type: "error",
+          message: "Failed to import Excel file",
+        });
+        setTimeout(() => setImportStatus({ type: "", message: "" }), 3000);
+      }
     };
     reader.readAsArrayBuffer(file);
+  };
+
+  // JSON export function
+  const exportToJSON = () => {
+    const success = DataHandler.exportToJSON(
+      "vehicles",
+      "inventory_backup.json"
+    );
+    if (success) {
+      setImportStatus({
+        type: "success",
+        message: "Data exported successfully",
+      });
+    } else {
+      setImportStatus({ type: "error", message: "Failed to export data" });
+    }
+    setTimeout(() => setImportStatus({ type: "", message: "" }), 3000);
+  };
+
+  // JSON import function
+  const importFromJSON = (e, mode = "merge") => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Reset file input
+    e.target.value = "";
+
+    DataHandler.importFromJSON("vehicles", file, mode)
+      .then(() => {
+        // Reload data from localStorage
+        const savedData = DataHandler.loadData("vehicles");
+        setInventory(savedData);
+        setLastUpdate(new Date());
+        setImportStatus({
+          type: "success",
+          message: "Data imported successfully",
+        });
+      })
+      .catch((error) => {
+        setImportStatus({ type: "error", message: error.message });
+      })
+      .finally(() => {
+        setTimeout(() => setImportStatus({ type: "", message: "" }), 3000);
+      });
   };
 
   // Theme-aware classes
@@ -184,6 +264,14 @@ const AutomobileInventory = () => {
     theme === "dark"
       ? "bg-gray-800 border border-gray-700 backdrop-blur-sm bg-opacity-90"
       : "bg-white border border-gray-200 backdrop-blur-sm bg-opacity-90";
+
+  const modalClass =
+    theme === "dark"
+      ? "bg-gray-800 border border-gray-700"
+      : "bg-white border border-gray-200";
+
+  const textClass = theme === "dark" ? "text-gray-100" : "text-gray-800";
+  const subtextClass = theme === "dark" ? "text-gray-300" : "text-gray-600";
 
   return (
     <div
@@ -306,10 +394,18 @@ const AutomobileInventory = () => {
                 <input
                   type="file"
                   accept=".xlsx,.xls"
-                  onChange={importFromExcel}
+                  onChange={(e) => importFromExcel(e, "merge")}
                   className="hidden"
                 />
               </label>
+
+              <button
+                onClick={() => setShowDataManagement(true)}
+                className="bg-gradient-to-r from-gray-500 to-gray-700 hover:from-gray-600 hover:to-gray-800 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+              >
+                <Database className="w-5 h-5" />
+                Data Management
+              </button>
             </div>
           </div>
         </div>
@@ -409,6 +505,102 @@ const AutomobileInventory = () => {
             onSave={editingItem ? handleUpdateItem : handleAddItem}
             theme={theme}
           />
+        )}
+
+        {/* Data Management Modal */}
+        {showDataManagement && (
+          <div className="fixed inset-0 bg-black bg-opacity-75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className={`${modalClass} rounded-2xl max-w-md w-full p-6`}>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className={`text-2xl font-bold ${textClass}`}>
+                  Data Management
+                </h2>
+                <button
+                  onClick={() => setShowDataManagement(false)}
+                  className={textClass}
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <h3 className={`font-medium ${subtextClass} mb-2`}>
+                    Export Data
+                  </h3>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={exportToExcel}
+                      className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded"
+                    >
+                      Export to Excel
+                    </button>
+                    <button
+                      onClick={exportToJSON}
+                      className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded"
+                    >
+                      Export to JSON
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className={`font-medium ${subtextClass} mb-2`}>
+                    Import Data
+                  </h3>
+                  <div className="space-y-2">
+                    <label className="block">
+                      <span className="sr-only">Import Excel</span>
+                      <div className="flex items-center">
+                        <span className="flex-1 bg-gray-200 text-gray-700 py-2 px-4 rounded-l">
+                          Excel File
+                        </span>
+                        <label className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-r cursor-pointer">
+                          Browse
+                          <input
+                            type="file"
+                            accept=".xlsx,.xls"
+                            onChange={(e) => importFromExcel(e, "merge")}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                    </label>
+
+                    <label className="block">
+                      <span className="sr-only">Import JSON</span>
+                      <div className="flex items-center">
+                        <span className="flex-1 bg-gray-200 text-gray-700 py-2 px-4 rounded-l">
+                          JSON File
+                        </span>
+                        <label className="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-r cursor-pointer">
+                          Browse
+                          <input
+                            type="file"
+                            accept=".json"
+                            onChange={(e) => importFromJSON(e, "merge")}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {importStatus.message && (
+                  <div
+                    className={`p-3 rounded ${
+                      importStatus.type === "success"
+                        ? "bg-green-100 text-green-800"
+                        : "bg-red-100 text-red-800"
+                    }`}
+                  >
+                    {importStatus.message}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Image Viewer */}
