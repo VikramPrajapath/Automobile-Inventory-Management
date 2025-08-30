@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import * as XLSX from "xlsx";
 import {
   Plus,
   Download,
@@ -126,7 +127,9 @@ const AutomobileInventory = () => {
     setTheme((prev) => (prev === "light" ? "dark" : "light"));
   };
 
-  const exportToExcel = () => {
+  // Export Inventory to Excel
+  const exportToExcel = (inventory) => {
+    // Convert data to worksheet
     const exportData = inventory.map((item) => ({
       "Part Name": item.partName,
       "Part Number": item.partNumber,
@@ -138,19 +141,41 @@ const AutomobileInventory = () => {
       Features: item.features,
     }));
 
-    console.log("Exporting data:", exportData);
-    alert(
-      "Export functionality would download Excel file in a real environment"
-    );
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Inventory");
+
+    // Trigger download
+    XLSX.writeFile(workbook, "inventory_data.xlsx");
   };
 
+  // Import Inventory from Excel
+  // ✅ Correct version
   const importFromExcel = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      alert(
-        "Import functionality would process Excel file in a real environment"
-      );
-    }
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const data = new Uint8Array(evt.target.result);
+      const workbook = XLSX.read(data, { type: "array" });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(worksheet);
+
+      const importedData = rows.map((row) => ({
+        partName: row["Part Name"],
+        partNumber: row["Part Number"],
+        brand: row["Brand"],
+        cost: parseFloat(row["Cost (₹)"]),
+        discount: parseFloat(row["Discount (%)"]),
+        quantity: parseInt(row["Quantity"], 10),
+        features: row["Features"] || "",
+      }));
+
+      setInventory(importedData); // ✅ This now works fine
+    };
+    reader.readAsArrayBuffer(file);
   };
 
   // Theme-aware classes
