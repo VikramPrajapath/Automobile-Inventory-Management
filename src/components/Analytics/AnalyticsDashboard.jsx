@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   BarChart3,
-  PieChart,
   TrendingUp,
   Calendar,
   Filter,
@@ -22,113 +21,105 @@ const AnalyticsDashboard = ({ inventory, theme, onClose }) => {
   const [selectedMetric, setSelectedMetric] = useState("quantity"); // value, quantity, items
   const [chartData, setChartData] = useState({});
   const [isLoading, setIsLoading] = useState(true);
-  const chartContainerRef = useRef(null);
 
-  // Calculate analytics data
+  // Memoize analytics data calculation - removed setTimeout for faster rendering
+  const calculatedData = useMemo(() => {
+    if (!inventory.length) return null;
+
+    // Get top brands by selected metric
+    const brandCounts = inventory.reduce((acc, item) => {
+      acc[item.brand] = (acc[item.brand] || 0) + 1;
+      return acc;
+    }, {});
+
+    const brandValues = inventory.reduce((acc, item) => {
+      const value = item.cost * item.quantity;
+      acc[item.brand] = (acc[item.brand] || 0) + value;
+      return acc;
+    }, {});
+
+    const brandQuantities = inventory.reduce((acc, item) => {
+      acc[item.brand] = (acc[item.brand] || 0) + item.quantity;
+      return acc;
+    }, {});
+
+    // Get top 8 brands based on selected metric
+    const topBrands = Object.entries(
+      selectedMetric === "items"
+        ? brandCounts
+        : selectedMetric === "value"
+        ? brandValues
+        : brandQuantities
+    )
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .reduce((obj, [key, value]) => {
+        obj[key] = value;
+        return obj;
+      }, {});
+
+    const lowStockItems = inventory.filter((item) => item.quantity < 5);
+
+    const highValueItems = inventory
+      .map((item) => ({
+        ...item,
+        totalValue: item.cost * item.quantity,
+      }))
+      .sort((a, b) => b.totalValue - a.totalValue)
+      .slice(0, 5);
+
+    const totalItems = inventory.length;
+    const totalQuantity = inventory.reduce(
+      (sum, item) => sum + item.quantity,
+      0
+    );
+    const totalValue = inventory.reduce(
+      (sum, item) => sum + item.cost * item.quantity,
+      0
+    );
+    const avgItemValue = totalValue / totalItems;
+
+    const categories = {
+      "Engine Parts": 35,
+      "Electrical Components": 25,
+      "Suspension & Steering": 20,
+      "Braking System": 15,
+      "Body & Exterior": 5,
+    };
+
+    const trends = {
+      items: { value: 12.5, direction: "up" },
+      quantity: { value: 8.2, direction: "up" },
+      value: { value: 15.7, direction: "up" },
+      lowStock: { value: 5.3, direction: "down" },
+    };
+
+    return {
+      brandDistribution: brandCounts,
+      valueByBrand: brandValues,
+      quantityByBrand: brandQuantities,
+      topBrands,
+      lowStockItems,
+      highValueItems,
+      categories,
+      statistics: {
+        totalItems,
+        totalQuantity,
+        totalValue,
+        avgItemValue,
+        lowStockCount: lowStockItems.length,
+      },
+      trends,
+    };
+  }, [inventory, selectedMetric]);
+
+  // Update chart data without delay
   useEffect(() => {
-    if (!inventory.length) {
+    if (calculatedData) {
+      setChartData(calculatedData);
       setIsLoading(false);
-      return;
     }
-
-    setIsLoading(true);
-
-    // Simulate data processing
-    setTimeout(() => {
-      // Get top 10 brands by selected metric to avoid overcrowding
-      const brandCounts = inventory.reduce((acc, item) => {
-        acc[item.brand] = (acc[item.brand] || 0) + 1;
-        return acc;
-      }, {});
-
-      const brandValues = inventory.reduce((acc, item) => {
-        const value = item.cost * item.quantity;
-        acc[item.brand] = (acc[item.brand] || 0) + value;
-        return acc;
-      }, {});
-
-      const brandQuantities = inventory.reduce((acc, item) => {
-        acc[item.brand] = (acc[item.brand] || 0) + item.quantity;
-        return acc;
-      }, {});
-
-      // Get top brands based on selected metric
-      const topBrands = Object.entries(
-        selectedMetric === "items"
-          ? brandCounts
-          : selectedMetric === "value"
-          ? brandValues
-          : brandQuantities
-      )
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 8) // Show only top 8 brands for better visualization
-        .reduce((obj, [key, value]) => {
-          obj[key] = value;
-          return obj;
-        }, {});
-
-      // Low stock items
-      const lowStockItems = inventory.filter((item) => item.quantity < 5);
-
-      // High value items
-      const highValueItems = inventory
-        .map((item) => ({
-          ...item,
-          totalValue: item.cost * item.quantity,
-        }))
-        .sort((a, b) => b.totalValue - a.totalValue)
-        .slice(0, 5);
-
-      // Category distribution (simulated)
-      const categories = {
-        "Engine Parts": 35,
-        "Electrical Components": 25,
-        "Suspension & Steering": 20,
-        "Braking System": 15,
-        "Body & Exterior": 5,
-      };
-
-      // Calculate statistics for the summary cards
-      const totalItems = inventory.length;
-      const totalQuantity = inventory.reduce(
-        (sum, item) => sum + item.quantity,
-        0
-      );
-      const totalValue = inventory.reduce(
-        (sum, item) => sum + item.cost * item.quantity,
-        0
-      );
-      const avgItemValue = totalValue / totalItems;
-      const lowStockCount = lowStockItems.length;
-
-      // Calculate trends (simulated data)
-      const trends = {
-        items: { value: 12.5, direction: "up" },
-        quantity: { value: 8.2, direction: "up" },
-        value: { value: 15.7, direction: "up" },
-        lowStock: { value: 5.3, direction: "down" },
-      };
-
-      setChartData({
-        brandDistribution: brandCounts,
-        valueByBrand: brandValues,
-        quantityByBrand: brandQuantities,
-        topBrands,
-        lowStockItems,
-        highValueItems,
-        categories,
-        statistics: {
-          totalItems,
-          totalQuantity,
-          totalValue,
-          avgItemValue,
-          lowStockCount,
-        },
-        trends,
-      });
-      setIsLoading(false);
-    }, 500);
-  }, [inventory, timeRange, selectedMetric]);
+  }, [calculatedData]);
 
   // Handle export functionality
   const handleExport = () => {
