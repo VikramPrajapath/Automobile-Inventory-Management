@@ -29,6 +29,7 @@ import InventoryModal from "./InventoryModal";
 import Statistics from "./Statistics";
 import DataHandler from "../utils/dataHandler";
 import FuturisticSnackbar from "../utils/FuturisticSnackbar";
+import DataSync from "../utils/DataSync";
 
 // Lazy load components for better performance
 const AnalyticsDashboard = lazy(() =>
@@ -81,21 +82,37 @@ const AutomobileInventory = () => {
     [removeSnackbar]
   );
 
-  // Load inventory using DataHandler
+  // Load inventory with DataSync sync
   useEffect(() => {
-    const savedData = DataHandler.loadData("vehicles");
+    // Load from DataSync (which pulls from localStorage)
+    const savedData = DataSync.getInventory();
     if (savedData && savedData.length > 0) {
       setInventory(savedData);
       addSnackbar("Inventory data loaded successfully", "success");
     } else {
-      addSnackbar("No saved inventory found. Start by adding items.", "info");
+      const fallbackData = DataHandler.loadData("vehicles");
+      if (fallbackData && fallbackData.length > 0) {
+        setInventory(fallbackData);
+        addSnackbar("Inventory data loaded successfully", "success");
+      } else {
+        addSnackbar("No saved inventory found. Start by adding items.", "info");
+      }
     }
+
+    // Subscribe to inventory changes from DataSync
+    const unsubscribe = DataSync.subscribe("inventory", (updatedInventory) => {
+      setInventory(updatedInventory);
+    });
+
+    return unsubscribe;
   }, [addSnackbar]);
 
   // Save inventory using DataHandler when it changes
   useEffect(() => {
     if (inventory.length > 0) {
       DataHandler.saveData("vehicles", inventory);
+      // Also sync with DataSync
+      DataSync.importData("inventory", inventory);
     }
   }, [inventory]);
 

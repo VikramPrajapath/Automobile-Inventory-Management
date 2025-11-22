@@ -8,6 +8,7 @@ import {
   DollarSign,
   CheckCircle,
 } from "lucide-react";
+import DataSync from "../../utils/DataSync";
 
 const PaymentTracker = ({ theme, onClose }) => {
   const [payments, setPayments] = useState([]);
@@ -31,13 +32,24 @@ const PaymentTracker = ({ theme, onClose }) => {
   }, [payments]);
 
   const handleAddPayment = (paymentData) => {
-    const newPayment = {
-      ...paymentData,
-      id: Date.now(),
-      createdAt: new Date().toISOString(),
-      status: "confirmed",
-    };
-    setPayments((prev) => [...prev, newPayment]);
+    try {
+      // Use DataSync to record payment - this will automatically update invoice status
+      const newPayment = {
+        ...paymentData,
+        id: Date.now(),
+        createdAt: new Date().toISOString(),
+        status: "confirmed",
+      };
+
+      DataSync.recordPayment(newPayment);
+
+      // Reload payments from DataSync to ensure sync
+      const updatedPayments = DataSync.getPayments();
+      setPayments(updatedPayments);
+    } catch (error) {
+      console.error("Error recording payment:", error);
+      alert(`Error recording payment: ${error.message}`);
+    }
   };
 
   const handleDeletePayment = (id) => {

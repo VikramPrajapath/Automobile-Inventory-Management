@@ -15,6 +15,7 @@ import {
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import DataSync from "../../utils/DataSync";
 
 const InvoiceManager = ({ inventory, theme, onClose }) => {
   const [invoices, setInvoices] = useState([]);
@@ -50,14 +51,37 @@ const InvoiceManager = ({ inventory, theme, onClose }) => {
 
   const handleAddInvoice = useCallback(
     (invoiceData) => {
-      const newInvoice = {
-        ...invoiceData,
-        id: Date.now(),
-        invoiceNumber: generateInvoiceNumber(),
-        createdAt: new Date().toISOString(),
-        status: "pending",
-      };
-      setInvoices((prev) => [...prev, newInvoice]);
+      try {
+        // Ensure items have proper structure for DataSync
+        const itemsForSync = (invoiceData.items || []).map((item) => ({
+          ...item,
+          itemId: item.id || item.itemId, // Ensure itemId is set
+        }));
+
+        console.log("Creating invoice with items:", itemsForSync);
+
+        // Create invoice with DataSync - this will automatically update inventory
+        const newInvoice = {
+          ...invoiceData,
+          id: Date.now(),
+          invoiceNumber: generateInvoiceNumber(),
+          createdAt: new Date().toISOString(),
+          status: "pending",
+          items: itemsForSync, // Use items with proper itemId
+        };
+
+        // Use DataSync to create invoice and update inventory
+        DataSync.createInvoice(newInvoice);
+
+        // Reload invoices from DataSync to ensure sync
+        const updatedInvoices = DataSync.getInvoices();
+        setInvoices(updatedInvoices);
+
+        console.log("Invoice created successfully, inventory updated");
+      } catch (error) {
+        console.error("Error creating invoice:", error);
+        alert(`Error creating invoice: ${error.message}`);
+      }
     },
     [generateInvoiceNumber]
   );

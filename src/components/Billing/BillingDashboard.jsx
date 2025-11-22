@@ -6,19 +6,34 @@ import {
   BarChart3,
   X,
 } from "lucide-react";
+import DataSync from "../../utils/DataSync";
 
 const BillingDashboard = ({ theme, onClose }) => {
   const [invoices, setInvoices] = useState([]);
   const [payments, setPayments] = useState([]);
   const [dateRange, setDateRange] = useState("month");
 
-  // Load invoices and payments from localStorage
+  // Load invoices and payments from DataSync with real-time sync
   useEffect(() => {
-    const savedInvoices = localStorage.getItem("invoices");
-    const savedPayments = localStorage.getItem("payments");
+    // Initial load
+    setInvoices(DataSync.getInvoices());
+    setPayments(DataSync.getPayments());
 
-    if (savedInvoices) setInvoices(JSON.parse(savedInvoices));
-    if (savedPayments) setPayments(JSON.parse(savedPayments));
+    // Subscribe to invoice changes
+    const unsubInvoices = DataSync.subscribe("invoices", (updatedInvoices) => {
+      setInvoices(updatedInvoices);
+    });
+
+    // Subscribe to payment changes
+    const unsubPayments = DataSync.subscribe("payments", (updatedPayments) => {
+      setPayments(updatedPayments);
+    });
+
+    // Cleanup subscriptions
+    return () => {
+      unsubInvoices();
+      unsubPayments();
+    };
   }, []);
 
   // Memoized helper functions
