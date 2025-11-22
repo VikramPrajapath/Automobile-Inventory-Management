@@ -547,68 +547,6 @@ const AutomobileInventory = () => {
             </div>
           </div>
         </div>
-        {showAnalytics && (
-          <Suspense
-            fallback={
-              <div className="text-center py-8 text-gray-500">
-                Loading Analytics...
-              </div>
-            }
-          >
-            <AnalyticsDashboard
-              inventory={inventory}
-              theme={theme}
-              onClose={() => setShowAnalytics(false)}
-            />
-          </Suspense>
-        )}
-
-        {showInvoiceManager && (
-          <Suspense
-            fallback={
-              <div className="text-center py-8 text-gray-500">
-                Loading Invoice Manager...
-              </div>
-            }
-          >
-            <InvoiceManager
-              inventory={inventory}
-              theme={theme}
-              onClose={() => setShowInvoiceManager(false)}
-            />
-          </Suspense>
-        )}
-
-        {showPaymentTracker && (
-          <Suspense
-            fallback={
-              <div className="text-center py-8 text-gray-500">
-                Loading Payment Tracker...
-              </div>
-            }
-          >
-            <PaymentTracker
-              theme={theme}
-              onClose={() => setShowPaymentTracker(false)}
-            />
-          </Suspense>
-        )}
-
-        {showBillingDashboard && (
-          <Suspense
-            fallback={
-              <div className="text-center py-8 text-gray-500">
-                Loading Billing Dashboard...
-              </div>
-            }
-          >
-            <BillingDashboard
-              theme={theme}
-              onClose={() => setShowBillingDashboard(false)}
-            />
-          </Suspense>
-        )}
-
         {/* Statistics */}
         <Statistics
           inventory={inventory}
@@ -856,6 +794,77 @@ const AutomobileInventory = () => {
           </div>
         )}
       </div>
+
+      {/* Floating Dashboards - Analytics Style */}
+      {showAnalytics && (
+        <Suspense
+          fallback={
+            <div className="fixed inset-0 bg-black bg-opacity-75 backdrop-blur-sm flex items-center justify-center z-50">
+              <div className="text-center py-8 text-gray-500">
+                Loading Analytics...
+              </div>
+            </div>
+          }
+        >
+          <AnalyticsDashboard
+            inventory={inventory}
+            theme={theme}
+            onClose={() => setShowAnalytics(false)}
+          />
+        </Suspense>
+      )}
+
+      {showInvoiceManager && (
+        <Suspense
+          fallback={
+            <div className="fixed inset-0 bg-black bg-opacity-75 backdrop-blur-sm flex items-center justify-center z-50">
+              <div className="text-center py-8 text-gray-500">
+                Loading Invoice Manager...
+              </div>
+            </div>
+          }
+        >
+          <InvoiceManager
+            inventory={inventory}
+            theme={theme}
+            onClose={() => setShowInvoiceManager(false)}
+          />
+        </Suspense>
+      )}
+
+      {showPaymentTracker && (
+        <Suspense
+          fallback={
+            <div className="fixed inset-0 bg-black bg-opacity-75 backdrop-blur-sm flex items-center justify-center z-50">
+              <div className="text-center py-8 text-gray-500">
+                Loading Payment Tracker...
+              </div>
+            </div>
+          }
+        >
+          <PaymentTracker
+            theme={theme}
+            onClose={() => setShowPaymentTracker(false)}
+          />
+        </Suspense>
+      )}
+
+      {showBillingDashboard && (
+        <Suspense
+          fallback={
+            <div className="fixed inset-0 bg-black bg-opacity-75 backdrop-blur-sm flex items-center justify-center z-50">
+              <div className="text-center py-8 text-gray-500">
+                Loading Billing Dashboard...
+              </div>
+            </div>
+          }
+        >
+          <BillingDashboard
+            theme={theme}
+            onClose={() => setShowBillingDashboard(false)}
+          />
+        </Suspense>
+      )}
 
       {/* Snackbar container */}
       <div className="fixed top-4 right-4 z-50 space-y-2">

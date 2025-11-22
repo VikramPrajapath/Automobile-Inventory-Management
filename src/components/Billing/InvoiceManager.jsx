@@ -131,263 +131,271 @@ const InvoiceManager = ({ inventory, theme, onClose }) => {
   const subtextClass = theme === "dark" ? "text-gray-300" : "text-gray-600";
 
   return (
-    <div className={`${bgClass} rounded-2xl shadow-xl p-6`}>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className={`text-3xl font-bold ${textClass}`}>Invoice Manager</h2>
-          <p className={`text-sm ${subtextClass}`}>
-            Manage customer invoices and track payments
-          </p>
-        </div>
-        <button
-          onClick={onClose}
-          className={`p-2 rounded-lg hover:bg-gray-200 ${
-            theme === "dark" ? "hover:bg-gray-700" : ""
-          }`}
-        >
-          <X className="w-6 h-6" />
-        </button>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div
-          className={`p-4 rounded-lg ${
-            theme === "dark" ? "bg-gray-700" : "bg-gray-50"
-          }`}
-        >
-          <div className={`text-sm ${subtextClass} mb-1`}>Total Invoices</div>
-          <div className={`text-2xl font-bold ${textClass}`}>
-            {invoices.length}
-          </div>
-        </div>
-        <div
-          className={`p-4 rounded-lg ${
-            theme === "dark" ? "bg-gray-700" : "bg-gray-50"
-          }`}
-        >
-          <div className={`text-sm ${subtextClass} mb-1`}>Total Revenue</div>
-          <div className={`text-2xl font-bold text-green-600`}>
-            ₹
-            {invoices
-              .reduce((sum, inv) => sum + (inv.grandTotal || 0), 0)
-              .toFixed(2)}
-          </div>
-        </div>
-        <div
-          className={`p-4 rounded-lg ${
-            theme === "dark" ? "bg-gray-700" : "bg-gray-50"
-          }`}
-        >
-          <div className={`text-sm ${subtextClass} mb-1`}>Pending</div>
-          <div className={`text-2xl font-bold text-yellow-600`}>
-            {invoices.filter((inv) => inv.status === "pending").length}
-          </div>
-        </div>
-        <div
-          className={`p-4 rounded-lg ${
-            theme === "dark" ? "bg-gray-700" : "bg-gray-50"
-          }`}
-        >
-          <div className={`text-sm ${subtextClass} mb-1`}>Paid</div>
-          <div className={`text-2xl font-bold text-green-600`}>
-            {invoices.filter((inv) => inv.status === "paid").length}
-          </div>
-        </div>
-      </div>
-
-      {/* Search and Actions */}
-      <div className="flex flex-wrap gap-4 mb-6">
-        <div className="flex-1 min-w-64">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Search invoices..."
-              className={`w-full pl-10 pr-4 py-2 border rounded-lg ${
-                theme === "dark"
-                  ? "bg-gray-700 border-gray-600 text-gray-100"
-                  : "bg-white border-gray-300 text-gray-900"
-              }`}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <button
-          onClick={() => {
-            setEditingInvoice(null);
-            setShowModal(true);
-          }}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg flex items-center gap-2"
-        >
-          <Plus className="w-5 h-5" />
-          New Invoice
-        </button>
-
-        <button
-          onClick={handleExportExcel}
-          className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg flex items-center gap-2"
-        >
-          <Download className="w-5 h-5" />
-          Export
-        </button>
-      </div>
-
-      {/* Invoices List */}
+    <div className="fixed inset-0 bg-black bg-opacity-75 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
       <div
-        className={`overflow-x-auto border rounded-lg ${
-          theme === "dark" ? "border-gray-700" : "border-gray-200"
-        }`}
+        className={`${bgClass} rounded-2xl shadow-2xl p-6 max-w-6xl w-full max-h-[90vh] overflow-y-auto`}
       >
-        <table className="w-full text-sm">
-          <thead
-            className={`border-b ${
-              theme === "dark"
-                ? "bg-gray-700 border-gray-600"
-                : "bg-gray-100 border-gray-200"
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h2 className={`text-3xl font-bold ${textClass}`}>
+              Invoice Manager
+            </h2>
+            <p className={`text-sm ${subtextClass}`}>
+              Manage customer invoices and track payments
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className={`p-2 rounded-lg hover:bg-gray-200 ${
+              theme === "dark" ? "hover:bg-gray-700" : ""
             }`}
           >
-            <tr>
-              <th className={`px-6 py-3 text-left font-medium ${textClass}`}>
-                Invoice #
-              </th>
-              <th className={`px-6 py-3 text-left font-medium ${textClass}`}>
-                Customer
-              </th>
-              <th className={`px-6 py-3 text-left font-medium ${textClass}`}>
-                Date
-              </th>
-              <th className={`px-6 py-3 text-right font-medium ${textClass}`}>
-                Amount
-              </th>
-              <th className={`px-6 py-3 text-left font-medium ${textClass}`}>
-                Status
-              </th>
-              <th className={`px-6 py-3 text-center font-medium ${textClass}`}>
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredInvoices.length > 0 ? (
-              filteredInvoices.map((invoice) => (
-                <tr
-                  key={invoice.id}
-                  className={`border-b ${
-                    theme === "dark"
-                      ? "border-gray-700 hover:bg-gray-700"
-                      : "border-gray-200 hover:bg-gray-50"
-                  }`}
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div
+            className={`p-4 rounded-lg ${
+              theme === "dark" ? "bg-gray-700" : "bg-gray-50"
+            }`}
+          >
+            <div className={`text-sm ${subtextClass} mb-1`}>Total Invoices</div>
+            <div className={`text-2xl font-bold ${textClass}`}>
+              {invoices.length}
+            </div>
+          </div>
+          <div
+            className={`p-4 rounded-lg ${
+              theme === "dark" ? "bg-gray-700" : "bg-gray-50"
+            }`}
+          >
+            <div className={`text-sm ${subtextClass} mb-1`}>Total Revenue</div>
+            <div className={`text-2xl font-bold text-green-600`}>
+              ₹
+              {invoices
+                .reduce((sum, inv) => sum + (inv.grandTotal || 0), 0)
+                .toFixed(2)}
+            </div>
+          </div>
+          <div
+            className={`p-4 rounded-lg ${
+              theme === "dark" ? "bg-gray-700" : "bg-gray-50"
+            }`}
+          >
+            <div className={`text-sm ${subtextClass} mb-1`}>Pending</div>
+            <div className={`text-2xl font-bold text-yellow-600`}>
+              {invoices.filter((inv) => inv.status === "pending").length}
+            </div>
+          </div>
+          <div
+            className={`p-4 rounded-lg ${
+              theme === "dark" ? "bg-gray-700" : "bg-gray-50"
+            }`}
+          >
+            <div className={`text-sm ${subtextClass} mb-1`}>Paid</div>
+            <div className={`text-2xl font-bold text-green-600`}>
+              {invoices.filter((inv) => inv.status === "paid").length}
+            </div>
+          </div>
+        </div>
+
+        {/* Search and Actions */}
+        <div className="flex flex-wrap gap-4 mb-6">
+          <div className="flex-1 min-w-64">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search invoices..."
+                className={`w-full pl-10 pr-4 py-2 border rounded-lg ${
+                  theme === "dark"
+                    ? "bg-gray-700 border-gray-600 text-gray-100"
+                    : "bg-white border-gray-300 text-gray-900"
+                }`}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <button
+            onClick={() => {
+              setEditingInvoice(null);
+              setShowModal(true);
+            }}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg flex items-center gap-2"
+          >
+            <Plus className="w-5 h-5" />
+            New Invoice
+          </button>
+
+          <button
+            onClick={handleExportExcel}
+            className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg flex items-center gap-2"
+          >
+            <Download className="w-5 h-5" />
+            Export
+          </button>
+        </div>
+
+        {/* Invoices List */}
+        <div
+          className={`overflow-x-auto border rounded-lg ${
+            theme === "dark" ? "border-gray-700" : "border-gray-200"
+          }`}
+        >
+          <table className="w-full text-sm">
+            <thead
+              className={`border-b ${
+                theme === "dark"
+                  ? "bg-gray-700 border-gray-600"
+                  : "bg-gray-100 border-gray-200"
+              }`}
+            >
+              <tr>
+                <th className={`px-6 py-3 text-left font-medium ${textClass}`}>
+                  Invoice #
+                </th>
+                <th className={`px-6 py-3 text-left font-medium ${textClass}`}>
+                  Customer
+                </th>
+                <th className={`px-6 py-3 text-left font-medium ${textClass}`}>
+                  Date
+                </th>
+                <th className={`px-6 py-3 text-right font-medium ${textClass}`}>
+                  Amount
+                </th>
+                <th className={`px-6 py-3 text-left font-medium ${textClass}`}>
+                  Status
+                </th>
+                <th
+                  className={`px-6 py-3 text-center font-medium ${textClass}`}
                 >
-                  <td className={`px-6 py-4 font-medium ${textClass}`}>
-                    {invoice.invoiceNumber}
-                  </td>
-                  <td className={`px-6 py-4 ${subtextClass}`}>
-                    {invoice.customerName}
-                  </td>
-                  <td className={`px-6 py-4 ${subtextClass}`}>
-                    {new Date(invoice.createdAt).toLocaleDateString()}
-                  </td>
-                  <td
-                    className={`px-6 py-4 text-right font-medium ${textClass}`}
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredInvoices.length > 0 ? (
+                filteredInvoices.map((invoice) => (
+                  <tr
+                    key={invoice.id}
+                    className={`border-b ${
+                      theme === "dark"
+                        ? "border-gray-700 hover:bg-gray-700"
+                        : "border-gray-200 hover:bg-gray-50"
+                    }`}
                   >
-                    ₹{invoice.grandTotal?.toFixed(2) || "0.00"}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span
-                      className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${
-                        invoice.status === "paid"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-yellow-100 text-yellow-700"
-                      }`}
+                    <td className={`px-6 py-4 font-medium ${textClass}`}>
+                      {invoice.invoiceNumber}
+                    </td>
+                    <td className={`px-6 py-4 ${subtextClass}`}>
+                      {invoice.customerName}
+                    </td>
+                    <td className={`px-6 py-4 ${subtextClass}`}>
+                      {new Date(invoice.createdAt).toLocaleDateString()}
+                    </td>
+                    <td
+                      className={`px-6 py-4 text-right font-medium ${textClass}`}
                     >
-                      {invoice.status === "paid" ? (
-                        <CheckCircle className="w-4 h-4" />
-                      ) : (
-                        <Clock className="w-4 h-4" />
-                      )}
-                      {invoice.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="flex justify-center gap-2">
-                      <button
-                        onClick={() => {
-                          setSelectedInvoice(invoice);
-                          setShowPreview(true);
-                        }}
-                        className="text-blue-600 hover:text-blue-700"
-                        title="Preview"
+                      ₹{invoice.grandTotal?.toFixed(2) || "0.00"}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${
+                          invoice.status === "paid"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-yellow-100 text-yellow-700"
+                        }`}
                       >
-                        <Eye className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={() => handleExportPDF(invoice)}
-                        className="text-green-600 hover:text-green-700"
-                        title="Export as PDF"
-                      >
-                        <FileText className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setEditingInvoice(invoice);
-                          setShowModal(true);
-                        }}
-                        className="text-purple-600 hover:text-purple-700"
-                        title="Edit"
-                      >
-                        <Edit2 className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteInvoice(invoice.id)}
-                        className="text-red-600 hover:text-red-700"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </div>
+                        {invoice.status === "paid" ? (
+                          <CheckCircle className="w-4 h-4" />
+                        ) : (
+                          <Clock className="w-4 h-4" />
+                        )}
+                        {invoice.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <div className="flex justify-center gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedInvoice(invoice);
+                            setShowPreview(true);
+                          }}
+                          className="text-blue-600 hover:text-blue-700"
+                          title="Preview"
+                        >
+                          <Eye className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => handleExportPDF(invoice)}
+                          className="text-green-600 hover:text-green-700"
+                          title="Export as PDF"
+                        >
+                          <FileText className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditingInvoice(invoice);
+                            setShowModal(true);
+                          }}
+                          className="text-purple-600 hover:text-purple-700"
+                          title="Edit"
+                        >
+                          <Edit2 className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteInvoice(invoice.id)}
+                          className="text-red-600 hover:text-red-700"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td
+                    colSpan="6"
+                    className={`px-6 py-8 text-center ${subtextClass}`}
+                  >
+                    No invoices found
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td
-                  colSpan="6"
-                  className={`px-6 py-8 text-center ${subtextClass}`}
-                >
-                  No invoices found
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Invoice Modal */}
+        {showModal && (
+          <InvoiceFormModal
+            invoice={editingInvoice}
+            inventory={inventory}
+            theme={theme}
+            onSave={editingInvoice ? handleUpdateInvoice : handleAddInvoice}
+            onClose={() => {
+              setShowModal(false);
+              setEditingInvoice(null);
+            }}
+          />
+        )}
+
+        {/* Preview Modal */}
+        {showPreview && selectedInvoice && (
+          <InvoicePreview
+            invoice={selectedInvoice}
+            theme={theme}
+            onClose={() => setShowPreview(false)}
+            onExportPDF={() => handleExportPDF(selectedInvoice)}
+          />
+        )}
       </div>
-
-      {/* Invoice Modal */}
-      {showModal && (
-        <InvoiceFormModal
-          invoice={editingInvoice}
-          inventory={inventory}
-          theme={theme}
-          onSave={editingInvoice ? handleUpdateInvoice : handleAddInvoice}
-          onClose={() => {
-            setShowModal(false);
-            setEditingInvoice(null);
-          }}
-        />
-      )}
-
-      {/* Preview Modal */}
-      {showPreview && selectedInvoice && (
-        <InvoicePreview
-          invoice={selectedInvoice}
-          theme={theme}
-          onClose={() => setShowPreview(false)}
-          onExportPDF={() => handleExportPDF(selectedInvoice)}
-        />
-      )}
     </div>
   );
 };
