@@ -7,7 +7,6 @@ import {
   CreditCard,
   DollarSign,
   CheckCircle,
-  AlertCircle,
 } from "lucide-react";
 
 const PaymentTracker = ({ theme, onClose }) => {
@@ -313,7 +312,6 @@ const PaymentFormModal = ({ theme, onSave, onClose }) => {
       : "bg-white border border-gray-200";
 
   const textClass = theme === "dark" ? "text-gray-100" : "text-gray-800";
-  const subtextClass = theme === "dark" ? "text-gray-300" : "text-gray-600";
 
   const handleSubmit = (e) => {
     e.preventDefault();

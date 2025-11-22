@@ -10,8 +10,6 @@ const InventoryCard = memo(
       [item.cost, item.discount]
     );
 
-    const isLowStock = useMemo(() => item.quantity < 5, [item.quantity]);
-
     // Theme-aware classes
     const cardClass =
       theme === "dark"

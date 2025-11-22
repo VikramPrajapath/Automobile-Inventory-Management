@@ -2,7 +2,7 @@ import AutomobileInventory from "./components/AutomobileInventory";
 import "./App.css";
 import React, { useState, useEffect } from "react";
 import Login from "./components/Login";
-import { WifiOff, AlertCircle } from "lucide-react";
+import { WifiOff } from "lucide-react";
 
 function App() {
   const [loggedIn, setLoggedIn] = useState(false);
