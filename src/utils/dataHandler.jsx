@@ -139,4 +139,5 @@ class DataHandler {
   }
 }
 
-export default new DataHandler();
+const dataHandlerInstance = new DataHandler();
+export default dataHandlerInstance;

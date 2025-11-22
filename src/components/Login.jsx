@@ -13,6 +13,20 @@ const Login = ({ onLogin }) => {
   const inactivityTimer = React.useRef(null);
   const countdownTimer = React.useRef(null);
 
+  // Handle user logout
+  const handleLogout = useCallback(() => {
+    // Clear all timers
+    if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+    if (countdownTimer.current) clearInterval(countdownTimer.current);
+
+    // Reset states
+    setShowTimeoutWarning(false);
+    setTimeoutCountdown(60);
+
+    // Call the parent logout function
+    onLogin(null);
+  }, [onLogin]);
+
   // Reset all timers
   const resetTimers = useCallback(() => {
     // Clear existing timers
@@ -40,27 +54,7 @@ const Login = ({ onLogin }) => {
         });
       }, 1000);
     }, 240000); // 4 minutes (show warning after 4 minutes)
-  }, []);
-
-  // Handle user logout
-  const handleLogout = useCallback(() => {
-    // Clear all timers
-    if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
-    if (countdownTimer.current) clearInterval(countdownTimer.current);
-
-    // Reset states
-    setShowTimeoutWarning(false);
-    setTimeoutCountdown(60);
-
-    // Call the parent logout function
-    if (typeof onLogin === "function") {
-      // For demonstration, we'll just clear the form
-      // In a real app, you would call a logout function
-      setEmail("");
-      setPassword("");
-      setError("Session expired. Please login again.");
-    }
-  }, [onLogin]);
+  }, [handleLogout]);
 
   // Set up event listeners for user activity
   useEffect(() => {

@@ -1,6 +1,13 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  lazy,
+  Suspense,
+} from "react";
 import * as XLSX from "xlsx";
-import AnalyticsDashboard from "../components/Analytics/AnalyticsDashboard";
+import { debounce } from "../utils/performanceOptimization";
 import {
   Plus,
   Download,
@@ -11,16 +18,25 @@ import {
   Activity,
   X,
   Database,
-  Settings,
   Trash2,
-  BarChart3, // Add this import
+  BarChart3,
+  DollarSign,
+  CreditCard,
+  TrendingUp,
 } from "lucide-react";
 import InventoryCard from "./InventoryCard";
 import InventoryModal from "./InventoryModal";
 import Statistics from "./Statistics";
 import DataHandler from "../utils/dataHandler";
-import dataPaths from "../config/paths";
 import FuturisticSnackbar from "../utils/FuturisticSnackbar";
+
+// Lazy load components for better performance
+const AnalyticsDashboard = lazy(() =>
+  import("../components/Analytics/AnalyticsDashboard")
+);
+const InvoiceManager = lazy(() => import("./Billing/InvoiceManager"));
+const PaymentTracker = lazy(() => import("./Billing/PaymentTracker"));
+const BillingDashboard = lazy(() => import("./Billing/BillingDashboard"));
 
 const AutomobileInventory = () => {
   // Theme state
@@ -36,6 +52,9 @@ const AutomobileInventory = () => {
   const [viewingImage, setViewingImage] = useState(null);
   const [showDataManagement, setShowDataManagement] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showInvoiceManager, setShowInvoiceManager] = useState(false);
+  const [showPaymentTracker, setShowPaymentTracker] = useState(false);
+  const [showBillingDashboard, setShowBillingDashboard] = useState(false);
   // Snackbar notifications
   const [snackbars, setSnackbars] = useState([]);
 
@@ -43,21 +62,24 @@ const AutomobileInventory = () => {
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Add a new snackbar
-  const addSnackbar = (message, type = "info") => {
-    const id = Date.now();
-    setSnackbars((prev) => [...prev, { id, message, type }]);
-
-    // Auto remove after 5 seconds
-    setTimeout(() => {
-      removeSnackbar(id);
-    }, 5000);
-  };
-
   // Remove a snackbar
-  const removeSnackbar = (id) => {
+  const removeSnackbar = useCallback((id) => {
     setSnackbars((prev) => prev.filter((snackbar) => snackbar.id !== id));
-  };
+  }, []);
+
+  // Add a new snackbar with useCallback
+  const addSnackbar = useCallback(
+    (message, type = "info") => {
+      const id = Date.now();
+      setSnackbars((prev) => [...prev, { id, message, type }]);
+
+      // Auto remove after 5 seconds
+      setTimeout(() => {
+        removeSnackbar(id);
+      }, 5000);
+    },
+    [removeSnackbar]
+  );
 
   // Load inventory using DataHandler
   useEffect(() => {
@@ -68,7 +90,7 @@ const AutomobileInventory = () => {
     } else {
       addSnackbar("No saved inventory found. Start by adding items.", "info");
     }
-  }, []);
+  }, [addSnackbar]);
 
   // Save inventory using DataHandler when it changes
   useEffect(() => {
@@ -85,67 +107,89 @@ const AutomobileInventory = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Get unique brands for filter dropdown
-  const uniqueBrands = [...new Set(inventory.map((item) => item.brand))];
+  // Memoize unique brands to avoid recalculation
+  const uniqueBrands = useMemo(
+    () => [...new Set(inventory.map((item) => item.brand))],
+    [inventory]
+  );
 
-  // Filter inventory based on search and brand filter
+  // Debounced filter function for better performance
+  const debouncedFilter = useMemo(
+    () =>
+      debounce((searchValue, brandValue, inventoryData) => {
+        let filtered = inventoryData;
+
+        if (searchValue) {
+          const lowerSearch = searchValue.toLowerCase();
+          filtered = filtered.filter(
+            (item) =>
+              item.partName?.toLowerCase().includes(lowerSearch) ||
+              item.partNumber?.toLowerCase().includes(lowerSearch) ||
+              item.brand?.toLowerCase().includes(lowerSearch)
+          );
+        }
+
+        if (brandValue) {
+          filtered = filtered.filter((item) => item.brand === brandValue);
+        }
+
+        setFilteredInventory(filtered);
+      }, 200),
+    []
+  );
+
+  // Filter inventory with debounce
   useEffect(() => {
-    let filtered = inventory;
-
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (item) =>
-          item.partName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          item.partNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          item.brand?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (brandFilter) {
-      filtered = filtered.filter((item) => item.brand === brandFilter);
-    }
-
-    setFilteredInventory(filtered);
-  }, [inventory, searchTerm, brandFilter]);
+    debouncedFilter(searchTerm, brandFilter, inventory);
+  }, [inventory, searchTerm, brandFilter, debouncedFilter]);
 
   // Handlers with persistence
-  const handleAddItem = useCallback((newItem) => {
-    const item = {
-      ...newItem,
-      id: Date.now() + Math.floor(Math.random() * 1000), // More unique ID
-      cost: parseFloat(newItem.cost),
-      discount: parseFloat(newItem.discount),
-      quantity: parseInt(newItem.quantity),
-    };
-    setInventory((prev) => [...prev, item]);
-    setLastUpdate(new Date());
-    addSnackbar("Item added successfully", "success");
-  }, []);
-
-  const handleUpdateItem = useCallback((updatedItem) => {
-    setInventory((prev) =>
-      prev.map((item) =>
-        item.id === updatedItem.id
-          ? {
-              ...updatedItem,
-              cost: parseFloat(updatedItem.cost),
-              discount: parseFloat(updatedItem.discount),
-              quantity: parseInt(updatedItem.quantity),
-            }
-          : item
-      )
-    );
-    setLastUpdate(new Date());
-    addSnackbar("Item updated successfully", "success");
-  }, []);
-
-  const handleDeleteItem = useCallback((id) => {
-    if (window.confirm("Are you sure you want to delete this item?")) {
-      setInventory((prev) => prev.filter((item) => item.id !== id));
+  const handleAddItem = useCallback(
+    (newItem) => {
+      const item = {
+        ...newItem,
+        id: Date.now() + Math.floor(Math.random() * 1000), // More unique ID
+        cost: parseFloat(newItem.cost),
+        discount: parseFloat(newItem.discount),
+        quantity: parseInt(newItem.quantity),
+      };
+      setInventory((prev) => [...prev, item]);
       setLastUpdate(new Date());
-      addSnackbar("Item deleted successfully", "success");
-    }
-  }, []);
+      addSnackbar("Item added successfully", "success");
+    },
+    [addSnackbar]
+  );
+
+  const handleUpdateItem = useCallback(
+    (updatedItem) => {
+      setInventory((prev) =>
+        prev.map((item) =>
+          item.id === updatedItem.id
+            ? {
+                ...updatedItem,
+                cost: parseFloat(updatedItem.cost),
+                discount: parseFloat(updatedItem.discount),
+                quantity: parseInt(updatedItem.quantity),
+              }
+            : item
+        )
+      );
+      setLastUpdate(new Date());
+      addSnackbar("Item updated successfully", "success");
+    },
+    [addSnackbar]
+  );
+
+  const handleDeleteItem = useCallback(
+    (id) => {
+      if (window.confirm("Are you sure you want to delete this item?")) {
+        setInventory((prev) => prev.filter((item) => item.id !== id));
+        setLastUpdate(new Date());
+        addSnackbar("Item deleted successfully", "success");
+      }
+    },
+    [addSnackbar]
+  );
 
   // Clear all data function
   const handleClearAllData = () => {
@@ -468,6 +512,31 @@ const AutomobileInventory = () => {
                 Clear All Data
               </button>
 
+              {/* Billing Buttons */}
+              <button
+                onClick={() => setShowInvoiceManager(true)}
+                className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+              >
+                <DollarSign className="w-5 h-5" />
+                Invoices
+              </button>
+
+              <button
+                onClick={() => setShowPaymentTracker(true)}
+                className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+              >
+                <CreditCard className="w-5 h-5" />
+                Payments
+              </button>
+
+              <button
+                onClick={() => setShowBillingDashboard(true)}
+                className="bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+              >
+                <TrendingUp className="w-5 h-5" />
+                Billing Dashboard
+              </button>
+
               <button
                 onClick={() => setShowAnalytics(true)}
                 className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
@@ -479,12 +548,67 @@ const AutomobileInventory = () => {
           </div>
         </div>
         {showAnalytics && (
-          <AnalyticsDashboard
-            inventory={inventory}
-            theme={theme}
-            onClose={() => setShowAnalytics(false)}
-          />
+          <Suspense
+            fallback={
+              <div className="text-center py-8 text-gray-500">
+                Loading Analytics...
+              </div>
+            }
+          >
+            <AnalyticsDashboard
+              inventory={inventory}
+              theme={theme}
+              onClose={() => setShowAnalytics(false)}
+            />
+          </Suspense>
         )}
+
+        {showInvoiceManager && (
+          <Suspense
+            fallback={
+              <div className="text-center py-8 text-gray-500">
+                Loading Invoice Manager...
+              </div>
+            }
+          >
+            <InvoiceManager
+              inventory={inventory}
+              theme={theme}
+              onClose={() => setShowInvoiceManager(false)}
+            />
+          </Suspense>
+        )}
+
+        {showPaymentTracker && (
+          <Suspense
+            fallback={
+              <div className="text-center py-8 text-gray-500">
+                Loading Payment Tracker...
+              </div>
+            }
+          >
+            <PaymentTracker
+              theme={theme}
+              onClose={() => setShowPaymentTracker(false)}
+            />
+          </Suspense>
+        )}
+
+        {showBillingDashboard && (
+          <Suspense
+            fallback={
+              <div className="text-center py-8 text-gray-500">
+                Loading Billing Dashboard...
+              </div>
+            }
+          >
+            <BillingDashboard
+              theme={theme}
+              onClose={() => setShowBillingDashboard(false)}
+            />
+          </Suspense>
+        )}
+
         {/* Statistics */}
         <Statistics
           inventory={inventory}
